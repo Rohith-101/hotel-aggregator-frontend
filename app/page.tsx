@@ -116,10 +116,12 @@ export default function Home() {
   const ratingDistributionData = useMemo(() => {
     const combined = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 };
     data.forEach(source => {
-      for (const [rating, count] of Object.entries(source.distribution)) {
-        const key = rating.charAt(0);
-        if (combined.hasOwnProperty(key)) {
-          combined[key as keyof typeof combined] += count;
+      if (source.distribution) {
+        for (const [rating, count] of Object.entries(source.distribution)) {
+          const key = rating.charAt(0);
+          if (combined.hasOwnProperty(key)) {
+            combined[key as keyof typeof combined] += count;
+          }
         }
       }
     });
@@ -220,7 +222,9 @@ export default function Home() {
                 <h3 className="text-lg font-semibold mb-4">Rating Distribution</h3>
                 <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
-                        <Pie
+                        <Pie 
+                            activeIndex={activeIndex}
+                            activeShape={renderActiveShape}
                             data={ratingDistributionData} 
                             cx="50%" 
                             cy="50%" 
@@ -229,8 +233,6 @@ export default function Home() {
                             fill="#8884d8"
                             dataKey="count"
                             onMouseEnter={onPieEnter}
-                            activeIndex={activeIndex}
-                            activeShape={renderActiveShape}
                         >
                             {ratingDistributionData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                         </Pie>
@@ -270,7 +272,7 @@ export default function Home() {
                         <td className="px-6 py-4 font-medium text-white align-top w-1/4">{item.source}</td>
                         <td className="px-6 py-4">
                           <div className="space-y-3">
-                            {item.reviews.map((review, index) => (
+                            {item.reviews && item.reviews.map((review, index) => (
                               <div key={index} className="text-gray-300">
                                 <p className="italic">"{review.snippet || 'No snippet available.'}"</p>
                               </div>
@@ -288,4 +290,4 @@ export default function Home() {
       </main>
     </div>
   );
-}   
+}
