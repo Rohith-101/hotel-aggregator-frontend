@@ -220,9 +220,7 @@ export default function Home() {
                 <h3 className="text-lg font-semibold mb-4">Rating Distribution</h3>
                 <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
-                        <Pie 
-                            activeIndex={activeIndex}
-                            activeShape={renderActiveShape}
+                        <Pie
                             data={ratingDistributionData} 
                             cx="50%" 
                             cy="50%" 
@@ -231,6 +229,8 @@ export default function Home() {
                             fill="#8884d8"
                             dataKey="count"
                             onMouseEnter={onPieEnter}
+                            activeIndex={activeIndex}
+                            activeShape={renderActiveShape}
                         >
                             {ratingDistributionData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                         </Pie>
@@ -288,4 +288,4 @@ export default function Home() {
       </main>
     </div>
   );
-}
+}   
