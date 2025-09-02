@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo, FC } from 'react';
+import { useState, useMemo } from 'react';
 import type { FormEvent } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Sector } from 'recharts';
 
 // --- Type Definitions ---
+// Note: ReviewSnippet is no longer directly used by ReviewData but is kept for potential future use.
 interface ReviewSnippet {
   rating?: number;
   snippet?: string;
@@ -15,7 +16,7 @@ interface ReviewData {
   rating: number;
   count: number;
   distribution: { [key: string]: number };
-  reviews: ReviewSnippet[];
+  reviews_snippets: string; // CORRECTED: Changed from 'reviews: ReviewSnippet[]' to match the backend.
 }
 
 // --- Helper Components & Icons ---
@@ -272,11 +273,16 @@ export default function Home() {
                         <td className="px-6 py-4 font-medium text-white align-top w-1/4">{item.source}</td>
                         <td className="px-6 py-4">
                           <div className="space-y-3">
-                            {item.reviews && item.reviews.map((review, index) => (
-                              <div key={index} className="text-gray-300">
-                                <p className="italic">"{review.snippet || 'No snippet available.'}"</p>
-                              </div>
-                            ))}
+                            {/* CORRECTED: This block now handles the 'reviews_snippets' string from the backend */}
+                            {item.reviews_snippets && typeof item.reviews_snippets === 'string' && item.reviews_snippets !== 'N/A' ? (
+                              item.reviews_snippets.split(' | ').map((snippet, index) => (
+                                <div key={index} className="text-gray-300">
+                                  <p className="italic">{snippet || 'No snippet available.'}</p>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-gray-400">No snippets available.</div>
+                            )}
                           </div>
                         </td>
                       </tr>
