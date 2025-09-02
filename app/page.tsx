@@ -2,21 +2,15 @@
 
 import { useState, useMemo } from 'react';
 import type { FormEvent } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Sector } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector } from 'recharts';
 
 // --- Type Definitions ---
-// Note: ReviewSnippet is no longer directly used by ReviewData but is kept for potential future use.
-interface ReviewSnippet {
-  rating?: number;
-  snippet?: string;
-}
-
 interface ReviewData {
   source: string;
   rating: number;
   count: number;
   distribution: { [key: string]: number };
-  reviews_snippets: string; // CORRECTED: Changed from 'reviews: ReviewSnippet[]' to match the backend.
+  reviews_snippets: string;
 }
 
 // --- Helper Components & Icons ---
@@ -26,35 +20,17 @@ const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" heigh
 
 // --- Recharts Custom Components ---
 const COLORS = ['#06B6D4', '#2DD4BF', '#67E8F9', '#A5F3FC', '#CFFAFE'];
-
 const renderActiveShape = (props: any) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent } = props;
   return (
     <g>
       <text x={cx} y={cy} dy={-5} textAnchor="middle" fill="#E5E7EB" className="font-bold text-2xl">{`${payload.rating} Stars`}</text>
       <text x={cx} y={cy} dy={20} textAnchor="middle" fill="#9CA3AF">{`(${(percent * 100).toFixed(0)}%)`}</text>
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-      />
-      <Sector
-        cx={cx}
-        cy={cy}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        innerRadius={outerRadius + 6}
-        outerRadius={outerRadius + 10}
-        fill={fill}
-      />
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />
+      <Sector cx={cx} cy={cy} startAngle={startAngle} endAngle={endAngle} innerRadius={outerRadius + 6} outerRadius={outerRadius + 10} fill={fill} />
     </g>
   );
 };
-
 
 // --- Main Dashboard Component ---
 export default function Home() {
@@ -85,12 +61,26 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch data from the backend.');
+        throw new Error(`Backend error: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
       if (result.error) throw new Error(result.error);
-      setData(result.data || []);
+      
+      // --- THIS IS THE FIX ---
+      // Filter out any results that have a null or empty distribution object.
+      // This makes the component resilient to incomplete data from the backend.
+      const cleanedData = (result.data || []).filter((item: ReviewData) => 
+        item.distribution && Object.keys(item.distribution).length > 0
+      );
+
+      // If all results were filtered out, inform the user.
+      if (urlList.length > 0 && cleanedData.length === 0 && !result.error) {
+        setError("Scraped data was incomplete and could not be displayed. Check hotel details.");
+      }
+      
+      setData(cleanedData);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred.');
     } finally {
@@ -126,29 +116,19 @@ export default function Home() {
         }
       }
     });
-    return [
-        { rating: 5, count: combined['5'] },
-        { rating: 4, count: combined['4'] },
-        { rating: 3, count: combined['3'] },
-        { rating: 2, count: combined['2'] },
-        { rating: 1, count: combined['1'] },
-    ];
+    return Object.entries(combined).map(([rating, count]) => ({ rating: parseInt(rating), count })).sort((a, b) => b.rating - a.rating);
   }, [data]);
 
   return (
     <div className="flex min-h-screen bg-gray-900 text-gray-200 font-sans">
-      {/* --- Left Sidebar --- */}
       <aside className="w-full max-w-md p-8 bg-gray-800/50 border-r border-gray-700 flex flex-col">
         <div className="mb-10">
           <h1 className="text-3xl font-bold text-cyan-400">Review Aggregator</h1>
           <p className="text-gray-400 mt-2">Consolidated Hotel Insights</p>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-6 flex-grow flex flex-col">
           <div>
-            <label htmlFor="urls" className="block text-sm font-semibold text-gray-300 mb-2">
-              Hotel URLs (one per line)
-            </label>
+            <label htmlFor="urls" className="block text-sm font-semibold text-gray-300 mb-2">Hotel URLs (one per line)</label>
             <textarea
               id="urls"
               value={urls}
@@ -158,30 +138,15 @@ export default function Home() {
               placeholder="https://www.booking.com/hotel/in/the-leela-palace-chennai.html&#10;https://www.tripadvisor.in/Hotel_Review-g304556-d3240217-Reviews-The_Leela_Palace_Chennai-Chennai_Madras_Chennai_District_Tamil_Nadu.html"
             />
           </div>
-          
           <div className="flex-grow"></div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full px-4 py-3 font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-800"
-          >
+          <button type="submit" disabled={loading} className="w-full px-4 py-3 font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-800">
             {loading ? 'Aggregating...' : 'Aggregate Reviews'}
           </button>
         </form>
-        
-        {error && (
-          <div className="p-4 mt-6 text-center text-sm rounded-md bg-red-900/50 text-red-300">
-            {error}
-          </div>
-        )}
+        {error && <div className="p-4 mt-6 text-center text-sm rounded-md bg-red-900/50 text-red-300">{error}</div>}
       </aside>
-
-      {/* --- Right Panel: Dashboard --- */}
       <main className="flex-1 p-8 overflow-y-auto">
-        {loading && <div className="text-center text-gray-400 pt-20">Loading and analyzing review data...</div>}
-        
-        {!loading && data.length === 0 && (
+        {!loading && data.length === 0 && !error && (
           <div className="flex items-center justify-center h-full text-center text-gray-500">
             <div>
               <h2 className="text-2xl font-semibold">Dashboard is ready</h2>
@@ -189,100 +154,43 @@ export default function Home() {
             </div>
           </div>
         )}
-
         {!loading && data.length > 0 && (
           <div className="space-y-8">
-            {/* --- Summary Cards --- */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gray-800 p-6 rounded-lg flex items-center space-x-4">
-                <IconLink />
-                <div>
-                  <h3 className="text-gray-400 text-sm font-medium">Sources Analyzed</h3>
-                  <p className="text-3xl font-bold mt-1">{summary.sourceCount}</p>
-                </div>
-              </div>
-              <div className="bg-gray-800 p-6 rounded-lg flex items-center space-x-4">
-                <IconStar className="text-cyan-400" />
-                <div>
-                  <h3 className="text-gray-400 text-sm font-medium">Weighted Avg. Rating</h3>
-                  <p className="text-3xl font-bold mt-1">{summary.avgRating}</p>
-                </div>
-              </div>
-              <div className="bg-gray-800 p-6 rounded-lg flex items-center space-x-4">
-                <IconUsers />
-                <div>
-                  <h3 className="text-gray-400 text-sm font-medium">Total Reviews</h3>
-                  <p className="text-3xl font-bold mt-1">{summary.totalReviews.toLocaleString()}</p>
-                </div>
-              </div>
+              <div className="bg-gray-800 p-6 rounded-lg flex items-center space-x-4"><IconLink /><div><h3 className="text-gray-400 text-sm font-medium">Sources Analyzed</h3><p className="text-3xl font-bold mt-1">{summary.sourceCount}</p></div></div>
+              <div className="bg-gray-800 p-6 rounded-lg flex items-center space-x-4"><IconStar className="text-cyan-400" /><div><h3 className="text-gray-400 text-sm font-medium">Weighted Avg. Rating</h3><p className="text-3xl font-bold mt-1">{summary.avgRating}</p></div></div>
+              <div className="bg-gray-800 p-6 rounded-lg flex items-center space-x-4"><IconUsers /><div><h3 className="text-gray-400 text-sm font-medium">Total Reviews</h3><p className="text-3xl font-bold mt-1">{summary.totalReviews.toLocaleString()}</p></div></div>
             </div>
-
-            {/* --- Visualizations --- */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="bg-gray-800 p-6 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Rating Distribution</h3>
                 <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                        <Pie 
-                            activeIndex={activeIndex}
-                            activeShape={renderActiveShape}
-                            data={ratingDistributionData} 
-                            cx="50%" 
-                            cy="50%" 
-                            innerRadius={80}
-                            outerRadius={110} 
-                            fill="#8884d8"
-                            dataKey="count"
-                            onMouseEnter={onPieEnter}
-                        >
-                            {ratingDistributionData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                        </Pie>
-                    </PieChart>
+                  <PieChart><Pie activeIndex={activeIndex} activeShape={renderActiveShape} data={ratingDistributionData} cx="50%" cy="50%" innerRadius={80} outerRadius={110} fill="#8884d8" dataKey="count" onMouseEnter={onPieEnter}>{ratingDistributionData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie></PieChart>
                 </ResponsiveContainer>
               </div>
               <div className="bg-gray-800 p-6 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Ratings by Source</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-                    <XAxis type="number" domain={[0, 5]} stroke="#A0AEC0" fontSize={12} />
-                    <YAxis type="category" dataKey="source" width={80} stroke="#A0AEC0" fontSize={12} />
-                    <Tooltip cursor={{fill: 'rgba(100, 116, 139, 0.1)'}} contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4A5568' }} />
-                    <Bar dataKey="rating" fill="#2DD4BF" name="Rating" background={{ fill: '#2D3748' }} />
-                  </BarChart>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" /><XAxis type="number" domain={[0, 5]} stroke="#A0AEC0" fontSize={12} /><YAxis type="category" dataKey="source" width={80} stroke="#A0AEC0" fontSize={12} /><Tooltip cursor={{fill: 'rgba(100, 116, 139, 0.1)'}} contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4A5568' }} /><Bar dataKey="rating" fill="#2DD4BF" name="Rating" background={{ fill: '#2D3748' }} /></BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
-
-            {/* --- Recent Reviews Table --- */}
             <div className="bg-gray-800 rounded-lg">
-              <div className="p-6">
-                <h3 className="text-lg font-semibold">Recent Review Snippets</h3>
-              </div>
+              <div className="p-6"><h3 className="text-lg font-semibold">Recent Review Snippets</h3></div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-700/50 text-xs text-gray-400 uppercase">
-                    <tr>
-                      <th scope="col" className="px-6 py-3">Source</th>
-                      <th scope="col" className="px-6 py-3">Recent Reviews</th>
-                    </tr>
-                  </thead>
+                <table className="w-full text-sm text-left"><thead className="bg-gray-700/50 text-xs text-gray-400 uppercase"><tr><th scope="col" className="px-6 py-3">Source</th><th scope="col" className="px-6 py-3">Recent Reviews</th></tr></thead>
                   <tbody>
                     {data.map((item) => (
                       <tr key={item.source} className="border-b border-gray-700">
                         <td className="px-6 py-4 font-medium text-white align-top w-1/4">{item.source}</td>
                         <td className="px-6 py-4">
                           <div className="space-y-3">
-                            {/* CORRECTED: This block now handles the 'reviews_snippets' string from the backend */}
                             {item.reviews_snippets && typeof item.reviews_snippets === 'string' && item.reviews_snippets !== 'N/A' ? (
                               item.reviews_snippets.split(' | ').map((snippet, index) => (
-                                <div key={index} className="text-gray-300">
-                                  <p className="italic">{snippet || 'No snippet available.'}</p>
-                                </div>
+                                <div key={index} className="text-gray-300"><p className="italic">{snippet || 'No snippet available.'}</p></div>
                               ))
-                            ) : (
-                              <div className="text-gray-400">No snippets available.</div>
-                            )}
+                            ) : (<div className="text-gray-400">No snippets available.</div>)}
                           </div>
                         </td>
                       </tr>
