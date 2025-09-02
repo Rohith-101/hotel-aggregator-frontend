@@ -164,9 +164,7 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="bg-gray-800 p-6 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Rating Distribution</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart><Pie activeIndex={activeIndex} activeShape={renderActiveShape} data={ratingDistributionData} cx="50%" cy="50%" innerRadius={80} outerRadius={110} fill="#8884d8" dataKey="count" onMouseEnter={onPieEnter}>{ratingDistributionData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie></PieChart>
-                </ResponsiveContainer>
+               
               </div>
               <div className="bg-gray-800 p-6 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Ratings by Source</h3>
